@@ -137,9 +137,20 @@ fn map_results(batches: &[BenchmarkBatch]) -> Result<HashMap<String, Vec<Benchma
 // Analyze and return the relevant results for a given benchmark.
 fn get_benchmark_data(batch: &BenchmarkBatch) -> BenchmarkData {
 	// Analyze benchmarks to get the linear regression.
-	let extrinsic_time = Analysis::min_squares_iqr(&batch.results, BenchmarkSelector::ExtrinsicTime).unwrap();
-	let reads = Analysis::min_squares_iqr(&batch.results, BenchmarkSelector::Reads).unwrap();
-	let writes = Analysis::min_squares_iqr(&batch.results, BenchmarkSelector::Writes).unwrap();
+	let extrinsic_time;
+	let reads;
+	let writes;
+	if batch.results.len() > 2 {
+		extrinsic_time =
+			Analysis::min_squares_iqr(&batch.results, BenchmarkSelector::ExtrinsicTime).unwrap();
+		reads = Analysis::min_squares_iqr(&batch.results, BenchmarkSelector::Reads).unwrap();
+		writes = Analysis::min_squares_iqr(&batch.results, BenchmarkSelector::Writes).unwrap();
+	} else {
+		extrinsic_time =
+			Analysis::median_slopes(&batch.results, BenchmarkSelector::ExtrinsicTime).unwrap();
+		reads = Analysis::median_slopes(&batch.results, BenchmarkSelector::Reads).unwrap();
+		writes = Analysis::median_slopes(&batch.results, BenchmarkSelector::Writes).unwrap();
+	}
 
 	// Analysis data may include components that are not used, this filters out anything whose value is zero.
 	let mut used_components = Vec::new();
@@ -147,42 +158,62 @@ fn get_benchmark_data(batch: &BenchmarkBatch) -> BenchmarkData {
 	let mut used_reads = Vec::new();
 	let mut used_writes = Vec::new();
 
+	let number_of_values = extrinsic_time.slopes.len();
 	extrinsic_time.slopes.into_iter()
 		.zip(extrinsic_time.names.iter())
-		.zip(extrinsic_time.model.unwrap().se.regressor_values.iter())
+		.zip(
+			extrinsic_time
+			.model
+			.map(|m| m.se.regressor_values.into_iter())
+			.unwrap_or_else(|| vec![0.; number_of_values].into_iter()),
+		)
 		.for_each(|((slope, name), error)| {
 			if !slope.is_zero() {
 				if !used_components.contains(&name) { used_components.push(name); }
 				used_extrinsic_time.push(ComponentSlope {
 					name: name.clone(),
 					slope: slope.saturating_mul(1000),
-					error: (*error as u128).saturating_mul(1000),
+					error: (error as u128).saturating_mul(1000),
 				});
 			}
 		});
+
+	let number_of_values = reads.slopes.len();
 	reads.slopes.into_iter()
 		.zip(reads.names.iter())
-		.zip(reads.model.unwrap().se.regressor_values.iter())
+		.zip(
+			reads
+			.model
+			.map(|r| r.se.regressor_values.into_iter())
+			.unwrap_or_else(|| vec![0.; number_of_values].into_iter()),
+		)
 		.for_each(|((slope, name), error)| {
 			if !slope.is_zero() {
 				if !used_components.contains(&name) { used_components.push(name); }
 				used_reads.push(ComponentSlope {
 					name: name.clone(),
 					slope,
-					error: *error as u128,
+					error: error as u128,
 				});
 			}
 		});
+
+	let number_of_values = writes.slopes.len();
 	writes.slopes.into_iter()
 		.zip(writes.names.iter())
-		.zip(writes.model.unwrap().se.regressor_values.iter())
+		.zip(
+			writes
+			.model
+			.map(|w| w.se.regressor_values.into_iter())
+			.unwrap_or_else(|| vec![0.; number_of_values].into_iter()),
+		)
 		.for_each(|((slope, name), error)| {
 			if !slope.is_zero() {
 				if !used_components.contains(&name) { used_components.push(name); }
 				used_writes.push(ComponentSlope {
 					name: name.clone(),
 					slope,
-					error: *error as u128,
+					error: error as u128,
 				});
 			}
 		});

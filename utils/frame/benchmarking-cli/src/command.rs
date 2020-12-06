@@ -160,7 +160,7 @@ impl BenchmarkCmd {
 							println!("Writes = {:?}", analysis);
 						}
 					}
-					if !self.no_min_squares {
+					if !self.no_min_squares && batch.results.len() > 2 {
 						println!("Min Squares Analysis\n========");
 						if let Some(analysis) = Analysis::min_squares_iqr(&batch.results, BenchmarkSelector::ExtrinsicTime) {
 							println!("-- Extrinsic Time --\n{}", analysis);
