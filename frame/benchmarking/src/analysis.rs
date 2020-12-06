@@ -142,7 +142,7 @@ impl Analysis {
 	}
 
 	pub fn min_squares_iqr(r: &Vec<BenchmarkResults>, selector: BenchmarkSelector) -> Option<Self> {
-		if r[0].components.is_empty() { return Self::median_value(r, selector) }
+		if r[0].components.is_empty() || r.len() <= 2 { return Self::median_value(r, selector) }
 
 		let mut results = BTreeMap::<Vec<u32>, Vec<u128>>::new();
 		for result in r.iter() {
